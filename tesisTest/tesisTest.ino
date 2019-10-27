@@ -5,15 +5,15 @@ const float pointReachedThreshold = 0.1;
 
 bool finish = false;
 
-bool countingTimeToEnd=false;
-float timeToEnd=0;
+bool countingTimeToEnd = false;
+float timeToEnd = 0;
 
 /* -------------------------------
   LEDS
 -----------------------------------*/
-int pinLedMoving=10;
-int pinLedFinishing=11;
-int pinLedFinished=12;
+int pinLedMoving = 10;
+int pinLedFinishing = 11;
+int pinLedFinished = 12;
 
 /* -------------------------------
   PWM
@@ -100,13 +100,11 @@ void readEncoders()
 {
   if (encoderCountDer != 0)
   {
-    Serial.println(encoderCountDer);
     previousCountDer += encoderCountDer;
     encoderCountDer = 0;
   }
   if (encoderCountIzq != 0)
   {
-    Serial.println(encoderCountIzq);
     previousCountIzq += encoderCountIzq;
     encoderCountIzq = 0;
   }
@@ -122,7 +120,7 @@ float kb = 0.01;
 float vRefDer = 0;
 float vRefIzq = 0;
 
-const int errorsLength=10;
+const int errorsLength = 10;
 
 float errorIzq = 0;
 float errorsIzqArray[errorsLength];
@@ -208,12 +206,20 @@ void updateWheelsMovement()
     speedIzq = 884 * PI * wheelRadius*1000000 / (previousCountIzq*(micros()-timeCountSpeedIzq));
     timeCountSpeedIzq=micros();
     previousCountIzq = 0;
+    Serial.print("izq count ");
+    Serial.println(previousCountIzq);
+    Serial.print("izq speed ");
+    Serial.println(speedIzq);
   }
   if (previousCountDer > 10 || previousCountDer < -10)
   {
     speedDer = 884 * PI * wheelRadius*1000000 / (previousCountDer*(micros()-timeCountSpeedDer));
     timeCountSpeedDer=micros();
     previousCountDer = 0;
+    Serial.print("der count ");
+    Serial.println(previousCountDer);
+    Serial.print("der speed ");
+    Serial.println(speedDer);
   }
 }
 
@@ -262,7 +268,7 @@ void calcControlVariables()
     reachedNewPoint = true;
     return;
   }
-  alpha = atan2(dY , dX) - curTheta;
+  alpha = atan2(dY, dX) - curTheta;
   while (alpha > PI)
   {
     alpha -= 2 * PI;
@@ -386,6 +392,8 @@ float calcDistanceToEnd()
   return norm;
 }
 
+long timeC= 0;
+
 void stopCar()
 {
   analogWrite(pinPwmIzqB, 0);
@@ -418,66 +426,20 @@ void setup()
   attachInterrupt(digitalPinToInterrupt(pinEncoderIzqB), countEncoderIzqB, CHANGE);
   attachInterrupt(digitalPinToInterrupt(pinEncoderIzqF), countEncoderIzqF, CHANGE);
 
-  int arr[20];
-  memset(arr, 0, sizeof arr);
-
-  while (Serial.available() <= 0) {
-    // read the incoming byte:
-    int incomingByte = Serial.read();
-    if(incomingByte>0) break;
-  }
-
-  digitalWrite(pinLedMoving, HIGH);
-
   timeCountSpeedIzq=micros();
   timeCountSpeedDer=micros();
 
-  timePassedIzq = micros();
-  timePassedDer = micros();
+  timeC = millis();
 }
+
+bool change=false;
 
 void loop()
 {
+  analogWrite(pinPwmIzqF, 100);
+  analogWrite(pinPwmDerF, 100);
 
-  if (finish)
-    return;
   readEncoders();
 
   odometry();
-
-  float trueGradX = -gradX();
-  float trueGradY = -gradY();
-
-  float grad[2] = {trueGradX, trueGradY};
-
-  if (reachedNewPoint)
-  {
-    reachedNewPoint = false;
-    calcNewPoint(grad);
-  }
-
-  controlOdometry();
-
-  control();
-  moveCar();
-  if (calcDistanceToEnd() < 0.1)
-  {
-    digitalWrite(pinLedFinishing, HIGH);
-    if (countingTimeToEnd == false)
-    {
-      countingTimeToEnd = true;
-      timeToEnd = micros();
-    }
-    else if (micros() - countingTimeToEnd > 1000000)
-    {
-      finish = true;
-      digitalWrite(pinLedFinished, HIGH);
-      stopCar();
-    }
-  }
-  else
-  {
-    countingTimeToEnd = false;
-    digitalWrite(pinLedFinishing, LOW);
-  }
 }
