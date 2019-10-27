@@ -3,6 +3,18 @@
 -----------------------------------*/
 const float pointReachedThreshold = 0.1;
 
+bool finish = false;
+
+bool countingTimeToEnd=false;
+float timeToEnd=0;
+
+/* -------------------------------
+  LEDS
+-----------------------------------*/
+int pinLedMoving=10;
+int pinLedFinishing=11;
+int pinLedFinished=12;
+
 /* -------------------------------
   PWM
 -----------------------------------*/
@@ -10,6 +22,11 @@ int pinPwmIzqF = 3;
 int pinPwmIzqB = 5;
 int pinPwmDerF = 6;
 int pinPwmDerB = 9;
+
+const int maxPWM = 100;
+
+int pwmValIzq = 0;
+int pwmValDer = 0;
 
 /* -------------------------------
   Encoders
@@ -92,10 +109,38 @@ void readEncoders()
   }
 }
 
-//control
-float kr=0.13;
-float ka=0.12;
-float kb=0.01;
+/* -------------------------------
+  Control
+-----------------------------------*/
+float kr = 0.3;
+float ka = 0.5;
+float kb = 0.01;
+
+float vRefDer = 0;
+float vRefIzq = 0;
+
+const int errorsLength=10;
+
+float errorIzq = 0;
+float errorsIzqArray[errorsLength];
+float prevErrIzq = 0;
+float errorSignalIzq = 0;
+
+float kpIzq = 0.2;
+float kiIzq = 0.000001;
+float kdIzq = 0.01;
+
+float errorDer = 0;
+float errorsDerArray[errorsLength];
+float prevErrDer = 0;
+float errorSignalDer = 0;
+
+float kpDer = 0.2;
+float kiDer = 0.000001;
+float kdDer = 0.01;
+
+long errorTime = 0;
+long integralIndex = 0;
 
 /* -------------------------------
   Position
@@ -137,6 +182,9 @@ float gradY()
 {
   return 2 * curY;
 }
+
+const float finalX = 2;
+const float finalY = 0;
 
 bool reachedNewPoint = true;
 float newX = 0;
@@ -182,16 +230,19 @@ void calcNewPosition()
   curTheta += dTheta;
 }
 
-void calcNewPoint(grad)
+void calcNewPoint(float grad[])
 {
   newX = grad[0];
   newY = grad[1];
-  float norm = sqrt(grad[0] * grad[0] + grad[1] * grad[1]);
+  float norm = sqrt((grad[0] * grad[0]) + (grad[1] * grad[1]));
   if (norm > 0.0001)
   {
     newX = newX / norm;
     newY = newY / norm;
   }
+
+  newX *= 0.1;
+  newY *= 0.1;
 }
 
 void calcControlVariables()
@@ -199,14 +250,14 @@ void calcControlVariables()
   float dX = newX - curX;
   float dY = newY - curY;
 
-  rho = sqrt(dX * dX + dY * dY);
+  rho = sqrt((dX * dX) + (dY * dY));
 
   if (rho < pointReachedThreshold)
   {
     reachedNewPoint = true;
     return;
   }
-  alpha = atan2(dY / dX) - curTheta;
+  alpha = atan2(dY , dX) - curTheta;
   while (alpha > PI)
   {
     alpha -= 2 * PI;
@@ -226,22 +277,117 @@ void calcControlVariables()
   }
 }
 
-void calcRefVelocities(){
-  float v = kr*rho;
-  float w = ka*alpha+kb*beta;
+void calcRefVelocities()
+{
+  float v = kr * rho;
+  float w = ka * alpha + kb * beta;
 
-  float vRefDer=v-l*w;
-  float vRefIzq=v-l*w;
+  vRefDer = v - l * w;
+  vRefIzq = v - l * w;
 }
 
 void controlOdometry()
 {
   calcControlVariables();
+  if (reachedNewPoint)
+    return;
   calcRefVelocities();
 }
 
 void control()
 {
+  errorIzq = vRefIzq - speedIzq;
+  errorDer = vRefDer - speedDer;
+
+  float deltaErrTime = micros() - errorTime;
+  deltaErrTime = deltaErrTime / 1000000;
+  errorTime = micros();
+
+  errorsIzqArray[integralIndex] = errorIzq * deltaErrTime;
+  errorsDerArray[integralIndex] = errorDer * deltaErrTime;
+  integralIndex++;
+  if (integralIndex == errorsLength)
+  {
+    integralIndex = 0;
+  }
+  float integralErrorIzq = 0;
+  float integralErrorDer = 0;
+  for (int i = 0; i < errorsLength; i++)
+  {
+    integralErrorIzq += errorsIzqArray[i];
+  }
+  for (int i = 0; i < errorsLength; i++)
+  {
+    integralErrorDer += errorsDerArray[i];
+  }
+  float errorIzqDerivative = (errorIzq - prevErrIzq) / deltaErrTime;
+  float errorDerDerivative = (errorDer - prevErrDer) / deltaErrTime;
+  prevErrIzq = errorIzq;
+  prevErrDer = errorDer;
+  errorSignalIzq = kpIzq * errorIzq + kiIzq * integralErrorIzq + kdIzq * errorIzqDerivative;
+  errorSignalDer = kpDer * errorDer + kiDer * integralErrorDer + kdDer * errorDerDerivative;
+
+  if (errorSignalIzq < 0.1 && errorSignalIzq > -0.1)
+  {
+    errorSignalIzq = 0;
+  }
+  if (errorSignalDer < 0.1 && errorSignalDer > -0.1)
+  {
+    errorSignalDer = 0;
+  }
+
+  pwmValIzq += errorSignalIzq;
+  pwmValDer += errorSignalDer;
+}
+
+void moveCar()
+{
+  pinPwmIzqF = 0;
+
+  int curPinPwmIzq = pwmValIzq >= 0 ? pinPwmIzqF : pinPwmIzqB;
+  int curPinPWMOffIzq = pwmValIzq >= 0 ? pinPwmIzqB : pinPwmIzqF;
+  int curPWMValIzq = pwmValIzq >= 0 ? pwmValIzq : -pwmValIzq;
+
+  if (vRefIzq == 0)
+  {
+    curPWMValIzq = 0;
+  }
+
+  curPWMValIzq = curPWMValIzq > maxPWM ? maxPWM : curPWMValIzq;
+
+  int curPinPwmDer = pwmValDer >= 0 ? pinPwmDerF : pinPwmDerB;
+  int curPinPWMOffDer = pwmValDer >= 0 ? pinPwmDerB : pinPwmDerF;
+  int curPWMValDer = pwmValDer >= 0 ? pwmValDer : -pwmValDer;
+
+  if (vRefDer == 0)
+  {
+    curPWMValDer = 0;
+  }
+
+  curPWMValDer = curPWMValDer > maxPWM ? maxPWM : curPWMValDer;
+
+  analogWrite(curPinPWMOffIzq, 0);
+  analogWrite(curPinPwmIzq, curPWMValIzq);
+
+  analogWrite(curPinPWMOffDer, 0);
+  analogWrite(curPinPwmDer, curPWMValDer);
+}
+
+float calcDistanceToEnd()
+{
+  float dX = finalX - curX;
+  float dY = finalY - curY;
+  float norm = sqrt((dX * dX) + (dY * dY));
+  return norm;
+}
+
+void stopCar()
+{
+  analogWrite(pinPwmIzqB, 0);
+  analogWrite(pinPwmIzqF, 0);
+
+  analogWrite(pinPwmDerB, 0);
+  analogWrite(pinPwmDerF, 0);
 }
 
 void setup()
@@ -253,6 +399,10 @@ void setup()
   pinMode(pinPwmDerF, OUTPUT);
   pinMode(pinPwmDerB, OUTPUT);
 
+  pinMode(pinLedMoving, OUTPUT);
+  pinMode(pinLedFinishing, OUTPUT);
+  pinMode(pinLedFinished, OUTPUT);
+
   pinMode(pinEncoderDerF, INPUT_PULLUP);
   pinMode(pinEncoderDerB, INPUT_PULLUP);
   pinMode(pinEncoderIzqB, INPUT_PULLUP);
@@ -263,6 +413,17 @@ void setup()
   attachInterrupt(digitalPinToInterrupt(pinEncoderIzqB), countEncoderIzqB, CHANGE);
   attachInterrupt(digitalPinToInterrupt(pinEncoderIzqF), countEncoderIzqF, CHANGE);
 
+  int arr[20];
+  memset(arr, 0, sizeof arr);
+
+  while (Serial.available() <= 0) {
+    // read the incoming byte:
+    int incomingByte = Serial.read();
+    if(incomingByte>0) break;
+  }
+
+  digitalWrite(pinLedMoving, HIGH);
+
   timePassedIzq = micros();
   timePassedDer = micros();
 }
@@ -270,6 +431,8 @@ void setup()
 void loop()
 {
 
+  if (finish)
+    return;
   readEncoders();
 
   odometry();
@@ -281,11 +444,32 @@ void loop()
 
   if (reachedNewPoint)
   {
-    calcNewPoint(grad);
     reachedNewPoint = false;
+    calcNewPoint(grad);
   }
 
   controlOdometry();
 
   control();
+  moveCar();
+  if (calcDistanceToEnd() < 0.1)
+  {
+    digitalWrite(pinLedFinishing, HIGH);
+    if (countingTimeToEnd == false)
+    {
+      countingTimeToEnd = true;
+      timeToEnd = micros();
+    }
+    else if (micros() - countingTimeToEnd > 1000000)
+    {
+      finish = true;
+      digitalWrite(pinLedFinished, HIGH);
+      stopCar();
+    }
+  }
+  else
+  {
+    countingTimeToEnd = false;
+    digitalWrite(pinLedFinishing, LOW);
+  }
 }
