@@ -1,3 +1,4 @@
+#include <PinChangeInt.h>
 /* -------------------------------
   Other parameters
 -----------------------------------*/
@@ -18,8 +19,8 @@ int pinLedFinished=12;
 /* -------------------------------
   PWM
 -----------------------------------*/
-int pinPwmIzqF = 3;
-int pinPwmIzqB = 5;
+int pinPwmIzqF = 5;
+int pinPwmIzqB = 3;
 int pinPwmDerF = 6;
 int pinPwmDerB = 9;
 
@@ -37,11 +38,6 @@ int pinEncoderDerB = 2;
 int pinEncoderIzqB = 7;
 int pinEncoderIzqF = 8;
 
-#define readDerF bitRead(pinEncoderDerF, 4)
-#define readDerB bitRead(pinEncoderDerB, 2)
-#define readIzqB bitRead(pinEncoderIzqB, 7)
-#define readIzqF bitRead(pinEncoderIzqF, 8)
-
 //Counting variables
 volatile int encoderCountIzq = 0;
 volatile int encoderCountDer = 0;
@@ -52,42 +48,23 @@ long timeCountSpeedIzq=0;
 long timeCountSpeedDer=0;
 
 //Functions
-void countEncoderDerF()
+void countEncoderDer()
 {
-  if (readDerF != readDerB)
+  if (digitalRead(pinEncoderDerB)==LOW)
   {
+    //Serial.println("llego der2");
     encoderCountDer = 1;
   }
   else
   {
+    //Serial.println("llego der3");
     encoderCountDer = -1;
   }
 }
-void countEncoderDerB()
+void countEncoderIzq()
 {
-  if (readDerF == readDerB)
-  {
-    encoderCountDer = 1;
-  }
-  else
-  {
-    encoderCountDer = -1;
-  }
-}
-void countEncoderIzqF()
-{
-  if (readIzqF != readIzqB)
-  {
-    encoderCountIzq = 1;
-  }
-  else
-  {
-    encoderCountIzq = -1;
-  }
-}
-void countEncoderIzqB()
-{
-  if (readIzqF == readIzqB)
+  //Serial.println("llego izq1");
+  if (digitalRead(pinEncoderIzqB)==LOW)
   {
     encoderCountIzq = 1;
   }
@@ -205,13 +182,13 @@ void updateWheelsMovement()
 {
   if (previousCountIzq > 10 || previousCountIzq < -10)
   {
-    speedIzq = 884 * PI * wheelRadius*1000000 / (previousCountIzq*(micros()-timeCountSpeedIzq));
+    speedIzq = 2*(float)previousCountIzq * PI * wheelRadius*1000000 / (442*(micros()-timeCountSpeedIzq));
     timeCountSpeedIzq=micros();
     previousCountIzq = 0;
   }
   if (previousCountDer > 10 || previousCountDer < -10)
   {
-    speedDer = 884 * PI * wheelRadius*1000000 / (previousCountDer*(micros()-timeCountSpeedDer));
+    speedDer = 2*(float)previousCountDer* PI * wheelRadius*1000000 / (442*(micros()-timeCountSpeedDer));
     timeCountSpeedDer=micros();
     previousCountDer = 0;
   }
@@ -408,18 +385,21 @@ void setup()
   pinMode(pinLedFinishing, OUTPUT);
   pinMode(pinLedFinished, OUTPUT);
 
-  pinMode(pinEncoderDerF, INPUT_PULLUP);
-  pinMode(pinEncoderDerB, INPUT_PULLUP);
-  pinMode(pinEncoderIzqB, INPUT_PULLUP);
-  pinMode(pinEncoderIzqF, INPUT_PULLUP);
+  pinMode(pinEncoderDerF, INPUT);
+  pinMode(pinEncoderDerB, INPUT);
+  pinMode(pinEncoderIzqB, INPUT);
+  pinMode(pinEncoderIzqF, INPUT);
+  
+  digitalWrite(pinEncoderIzqB, HIGH);
+  digitalWrite(pinEncoderIzqF, HIGH);
+  digitalWrite(pinEncoderDerF, HIGH);
+  digitalWrite(pinEncoderDerB, HIGH);
 
-  attachInterrupt(digitalPinToInterrupt(pinEncoderDerF), countEncoderDerF, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(pinEncoderDerB), countEncoderDerB, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(pinEncoderIzqB), countEncoderIzqB, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(pinEncoderIzqF), countEncoderIzqF, CHANGE);
+  PCintPort::attachInterrupt(pinEncoderDerF, countEncoderDer, RISING);
+  PCintPort::attachInterrupt(pinEncoderIzqF, countEncoderIzq,RISING); // attach a PinChange Interrupt to our pin on the rising edge
 
-  int arr[20];
-  memset(arr, 0, sizeof arr);
+  //int arr[20];
+  //memset(arr, 0, sizeof arr);
 
   while (Serial.available() <= 0) {
     // read the incoming byte:
