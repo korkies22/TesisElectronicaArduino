@@ -2,12 +2,13 @@
 /* -------------------------------
   Other parameters
 -----------------------------------*/
-const float pointReachedThreshold = 0.1;
+const float pointReachedThreshold = 0.05;
+long timeToNewPoint=0;
 
 bool finish = false;
 
 bool countingTimeToEnd = false;
-float timeToEnd = 0;
+long timeToEnd = 0;
 
 
 long timeC= 0;
@@ -105,25 +106,25 @@ float vRefIzq = 0;
 const int errorsLength = 30;
 
 float errorIzq = 0;
-float errorsIzqArray[errorsLength];
 float prevErrIzq = 0;
 float errorSignalIzq = 0;
 
-float kpIzq = 0.0001;
-float kiIzq = 0.0000002;
-float kdIzq = 0.00002;
+float kpIzq = 0.2;
+float kiIzq = 2;
+float kdIzq = 0.02;
 
 float errorDer = 0;
-float errorsDerArray[errorsLength];
 float prevErrDer = 0;
 float errorSignalDer = 0;
 
-float kpDer = 0.0001;
-float kiDer = 0.0000002;
-float kdDer = 0.00002;
+float kpDer = 0.2;
+float kiDer = 2;
+float kdDer = 0.02;
+
+float integralErrorIzq = 100/kiIzq;
+float integralErrorDer = 100/kiDer;
 
 long errorTime = 0;
-long integralIndex = 0;
 
 /* -------------------------------
   Position
@@ -155,6 +156,8 @@ float wheelRadius = 0.047;
 /* -------------------------------
   Gradient function
 -----------------------------------*/
+
+float grad[2] = {0,0};
 //Function = (x-2)^2+y^2
 float gradX()
 {
@@ -236,7 +239,7 @@ void calcNewPosition()
   curTheta=curTheta<-PI?curTheta+PI:curTheta;
 }
 
-void calcNewPoint(float grad[])
+void calcNewPoint()
 {
   newX = grad[0];
   newY = grad[1];
@@ -249,6 +252,9 @@ void calcNewPoint(float grad[])
 
   newX *= 0.1;
   newY *= 0.1;
+
+  newX+=curX;
+  newY+=curY;
 }
 
 void calcControlVariables()
@@ -258,8 +264,9 @@ void calcControlVariables()
 
   rho = sqrt((dX * dX) + (dY * dY));
 
-  if (rho < pointReachedThreshold)
+  if (rho < pointReachedThreshold || micros()-timeToNewPoint>1000000)
   {
+    timeToNewPoint=micros();
     reachedNewPoint = true;
     return;
   }
@@ -288,8 +295,14 @@ void calcRefVelocities()
   float v = kr * rho;
   float w = ka * alpha + kb * beta;
 
-  vRefDer = v - l * w;
+  vRefDer = (v - l * w)*0.95;
   vRefIzq = v - l * w;
+
+  if(vRefIzq>0.3) vRefIzq=0.3;
+  if(vRefIzq<-0.3) vRefIzq=-0.3;
+
+  if(vRefDer>0.3) vRefDer=0.3;
+  if(vRefDer<-0.3) vRefDer=-0.3;
 }
 
 void controlOdometry()
@@ -305,40 +318,10 @@ void control()
   errorIzq = vRefIzq*1000 - speedIzq*1000;
   errorDer = vRefDer*1000 - speedDer*1000;
 
-  long deltaErrTime = micros() - errorTime;
-  deltaErrTime = deltaErrTime;
-  errorTime = micros();
-
-  float errorTimedIzq=errorIzq * deltaErrTime;
-  float errorTimedDer=errorDer * deltaErrTime;
-
-  if(errorTimedIzq<0.001 && errorIzq>0.01){
-    errorTimedIzq=0.001;
-  }
-
-  if(errorTimedDer<0.001 && errorDer>0.01){
-    errorTimedDer=0.001;
-  }
-
-  errorsIzqArray[integralIndex] = errorTimedIzq;
-  errorsDerArray[integralIndex] = errorTimedDer;
-  integralIndex++;
-  if (integralIndex == errorsLength)
-  {
-    integralIndex = 0;
-  }
-  float integralErrorIzq = 0;
-  float integralErrorDer = 0;
-  for (int i = 0; i < errorsLength; i++)
-  {
-    integralErrorIzq += errorsIzqArray[i];
-  }
-  for (int i = 0; i < errorsLength; i++)
-  {
-    integralErrorDer += errorsDerArray[i];
-  }
-  float errorIzqDerivative = (errorIzq - prevErrIzq) / deltaErrTime;
-  float errorDerDerivative = (errorDer - prevErrDer) / deltaErrTime;
+  integralErrorIzq+= errorIzq/10000;
+  integralErrorDer+= errorDer/10000;
+  float errorIzqDerivative = (errorIzq - prevErrIzq);
+  float errorDerDerivative = (errorDer - prevErrDer);
   prevErrIzq = errorIzq;
   prevErrDer = errorDer;
   errorSignalIzq = kpIzq * errorIzq + kiIzq * integralErrorIzq + kdIzq * errorIzqDerivative;
@@ -353,12 +336,12 @@ void control()
     errorSignalDer = 0;
   }
 
-  pwmValIzq += errorSignalIzq;
-  pwmValDer += errorSignalDer;
+  pwmValIzq = errorSignalIzq;
+  pwmValDer = errorSignalDer;
 
   
   
-  if(micros()-timeC>10000){
+  if(micros()-timeC>100000){
     Serial.print("curX ");
     Serial.println(curX);
     Serial.print("curY ");
@@ -366,12 +349,34 @@ void control()
     Serial.print("curTheta ");
     Serial.println(curTheta);
     timeC=micros();
-    Serial.print("Ñam ");
+    /*Serial.print("Ñam ");
     Serial.println(vRefIzq);
-    Serial.print("Ñam1.5 ");
+     Serial.print("Ñam1.1 ");
     Serial.println(speedIzq);
-    Serial.print("Ñam2 ");
+    Serial.print("Ñam1.5 ");
+    Serial.println(integralErrorIzq);
+    Serial.print("Ñam1.6 ");
     Serial.println(errorIzq);
+    Serial.print("Ñam1.7 ");
+    Serial.println(errorDerDerivative);
+    Serial.print("Ñam2 ");
+    Serial.println(errorSignalIzq);
+    Serial.print("Ñam3 ");
+    Serial.println(pwmValIzq);*/
+    Serial.print("Rho ");
+    Serial.println(rho);
+    Serial.print("Alpha ");
+    Serial.println(alpha);
+    Serial.print("Beta ");
+    Serial.println(beta);
+    Serial.print("New X ");
+    Serial.println(newX);
+    Serial.print("New Y ");
+    Serial.println(newY);
+    Serial.print("GradX ");
+    Serial.println(grad[0]);
+    Serial.print("GradY ");
+    Serial.println(grad[1]);
   }
 
 }
@@ -474,6 +479,7 @@ void setup()
   timeCountSpeedDer=micros();
 
   timeC = micros();
+  timeToNewPoint=micros();
   Serial.println("Empezó");
 
 }
@@ -489,17 +495,18 @@ void loop()
   float trueGradX = -gradX();
   float trueGradY = -gradY();
 
-  float grad[2] = {trueGradX, trueGradY};
+  grad[0] = trueGradX;
+  grad[1] = trueGradY;
 
   if (reachedNewPoint)
   {
     reachedNewPoint = false;
-    calcNewPoint(grad);
+    calcNewPoint();
   }
 
   controlOdometry();
 
-  if(micros()-timeControl>100000){
+  if(micros()-timeControl>400000){
     control();
   }
   moveCar();
@@ -510,12 +517,15 @@ void loop()
     {
       countingTimeToEnd = true;
       timeToEnd = micros();
+      Serial.println("counting end");
     }
-    else if (micros() - countingTimeToEnd > 1000000)
+    else if (micros() - timeToEnd > 1000000)
     {
       finish = true;
       digitalWrite(pinLedFinished, HIGH);
       stopCar();
+      Serial.println(micros() - timeToEnd);
+      Serial.println("Finished");
     }
   }
   else
