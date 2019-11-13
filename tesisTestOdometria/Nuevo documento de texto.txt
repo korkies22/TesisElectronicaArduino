@@ -2,17 +2,12 @@
 /* -------------------------------
   Other parameters
 -----------------------------------*/
-const float pointReachedThreshold = 0.05;
-long timeToNewPoint=0;
+const float pointReachedThreshold = 0.1;
 
 bool finish = false;
 
 bool countingTimeToEnd = false;
-long timeToEnd = 0;
-
-
-long timeC= 0;
-long timeControl=0;
+float timeToEnd = 0;
 
 /* -------------------------------
   LEDS
@@ -29,7 +24,7 @@ int pinPwmIzqB = 3;
 int pinPwmDerF = 6;
 int pinPwmDerB = 9;
 
-const int maxPWM = 255;
+const int maxPWM = 100;
 
 int pwmValIzq = 0;
 int pwmValDer = 0;
@@ -96,35 +91,35 @@ void readEncoders()
 /* -------------------------------
   Control
 -----------------------------------*/
-float kr = 2;
-float ka = 1;
-float kb = 0.04;
+float kr = 0.3;
+float ka = 0.5;
+float kb = 0.01;
 
 float vRefDer = 0;
 float vRefIzq = 0;
 
-const int errorsLength = 30;
+const int errorsLength = 10;
 
 float errorIzq = 0;
+float errorsIzqArray[errorsLength];
 float prevErrIzq = 0;
 float errorSignalIzq = 0;
 
 float kpIzq = 0.2;
-float kiIzq = 2;
-float kdIzq = 0.02;
+float kiIzq = 0.000001;
+float kdIzq = 0.01;
 
 float errorDer = 0;
+float errorsDerArray[errorsLength];
 float prevErrDer = 0;
 float errorSignalDer = 0;
 
 float kpDer = 0.2;
-float kiDer = 2;
-float kdDer = 0.02;
-
-float integralErrorIzq = 100/kiIzq;
-float integralErrorDer = 100/kiDer;
+float kiDer = 0.000001;
+float kdDer = 0.01;
 
 long errorTime = 0;
+long integralIndex = 0;
 
 /* -------------------------------
   Position
@@ -133,9 +128,6 @@ long errorTime = 0;
 float curX = 0;
 float curY = 0;
 float curTheta = 0;
-
-float v=0;
-float w=0;
 
 long timePassedDer = 0;
 long timePassedIzq = 0;
@@ -152,28 +144,26 @@ float beta = 0;
 /* -------------------------------
   Car parameters
 -----------------------------------*/
-float b = 0.17;
+float b = 0.18;
 float l = b / 2;
-float wheelRadius = 0.034;
+float wheelRadius = 0.065;
 
 /* -------------------------------
   Gradient function
 -----------------------------------*/
-
-float grad[2] = {0,0};
-//Function = (x-2)^2+y^2 Le faltan -7
+//Function = (x-2)^2+y^2
 float gradX()
 {
-  return 2 * (curX);
+  return 2 * (curX - 2);
 }
 
 float gradY()
 {
-  return 2 * (curY+1.5 );
+  return 2 * curY;
 }
 
-const float finalX = 0;
-const float finalY = -1.5;
+const float finalX = 2;
+const float finalY = 0;
 
 bool reachedNewPoint = true;
 float newX = 0;
@@ -195,14 +185,9 @@ void updateWheelsMovement()
     timeCountSpeedIzq=micros();
     //Serial.print("izq count ");
     //Serial.println(previousCountIzq);
-    //Serial.print("izq speed ");
-    //Serial.println(speedIzq);
+    Serial.print("izq speed ");
+    Serial.println(speedIzq);
     previousCountIzq = 0;
-  }
-  else if(micros()-timeCountSpeedIzq>100000){
-    speedIzq=0;
-    previousCountIzq = 0;
-    timeCountSpeedIzq=micros();
   }
   if (previousCountDer > 10 || previousCountDer < -10)
   {
@@ -213,11 +198,6 @@ void updateWheelsMovement()
     //Serial.print("der speed ");
     //Serial.println(speedDer);
     previousCountDer = 0;
-  }
-  else if(micros()-timeCountSpeedDer>100000){
-    speedDer=0;
-    previousCountDer = 0;
-    timeCountSpeedDer=micros();
   }
 }
 
@@ -237,12 +217,9 @@ void calcNewPosition()
   curX += ds * cos(curTheta + dTheta / 2);
   curY += ds * sin(curTheta + dTheta / 2);
   curTheta += dTheta;
-
-  curTheta=curTheta>2*PI?curTheta-2*PI:curTheta;
-  curTheta=curTheta<-2*PI?curTheta+2*PI:curTheta;
 }
 
-void calcNewPoint()
+void calcNewPoint(float grad[])
 {
   newX = grad[0];
   newY = grad[1];
@@ -255,14 +232,6 @@ void calcNewPoint()
 
   newX *= 0.1;
   newY *= 0.1;
-
-  if(micros()-timeC>290000){
-    Serial.print("newYT ");
-    Serial.println(newY);
-  }
-
-  newX+=curX;
-  newY+=curY;
 }
 
 void calcControlVariables()
@@ -272,9 +241,8 @@ void calcControlVariables()
 
   rho = sqrt((dX * dX) + (dY * dY));
 
-  if (rho < pointReachedThreshold || micros()-timeToNewPoint>1000000)
+  if (rho < pointReachedThreshold)
   {
-    timeToNewPoint=micros();
     reachedNewPoint = true;
     return;
   }
@@ -300,17 +268,11 @@ void calcControlVariables()
 
 void calcRefVelocities()
 {
-  v = kr * rho;
-  w = ka * alpha + kb * beta;
+  float v = kr * rho;
+  float w = ka * alpha + kb * beta;
 
-  vRefDer = (v +l * w);
+  vRefDer = v - l * w;
   vRefIzq = v - l * w;
-
-  if(vRefIzq>0.3) vRefIzq=0.3;
-  if(vRefIzq<-0.3) vRefIzq=-0.3;
-
-  if(vRefDer>0.3) vRefDer=0.3;
-  if(vRefDer<-0.3) vRefDer=-0.3;
 }
 
 void controlOdometry()
@@ -323,13 +285,32 @@ void controlOdometry()
 
 void control()
 {
-  errorIzq = vRefIzq*1000 - speedIzq*1000;
-  errorDer = vRefDer*1000 - speedDer*1000;
+  errorIzq = vRefIzq - speedIzq;
+  errorDer = vRefDer - speedDer;
 
-  integralErrorIzq+= errorIzq/10000;
-  integralErrorDer+= errorDer/10000;
-  float errorIzqDerivative = (errorIzq - prevErrIzq);
-  float errorDerDerivative = (errorDer - prevErrDer);
+  float deltaErrTime = micros() - errorTime;
+  deltaErrTime = deltaErrTime / 1000000;
+  errorTime = micros();
+
+  errorsIzqArray[integralIndex] = errorIzq * deltaErrTime;
+  errorsDerArray[integralIndex] = errorDer * deltaErrTime;
+  integralIndex++;
+  if (integralIndex == errorsLength)
+  {
+    integralIndex = 0;
+  }
+  float integralErrorIzq = 0;
+  float integralErrorDer = 0;
+  for (int i = 0; i < errorsLength; i++)
+  {
+    integralErrorIzq += errorsIzqArray[i];
+  }
+  for (int i = 0; i < errorsLength; i++)
+  {
+    integralErrorDer += errorsDerArray[i];
+  }
+  float errorIzqDerivative = (errorIzq - prevErrIzq) / deltaErrTime;
+  float errorDerDerivative = (errorDer - prevErrDer) / deltaErrTime;
   prevErrIzq = errorIzq;
   prevErrDer = errorDer;
   errorSignalIzq = kpIzq * errorIzq + kiIzq * integralErrorIzq + kdIzq * errorIzqDerivative;
@@ -344,67 +325,13 @@ void control()
     errorSignalDer = 0;
   }
 
-  pwmValIzq = errorSignalIzq;
-  pwmValDer = errorSignalDer;
-
-  
-  
-  if(micros()-timeC>300000){
-    Serial.print("curX ");
-    Serial.println(curX);
-    Serial.print("curY ");
-    Serial.println(curY);
-    Serial.print("curTheta ");
-    Serial.println(curTheta*180/PI,4);
-    Serial.print("dsIzq ");
-    Serial.println(dsIzq,7);
-    Serial.print("pwmValDer ");
-    Serial.println(pwmValDer,7);
-    /*Serial.print("Ñam ");
-    Serial.println(vRefIzq);
-     Serial.print("Ñam1.1 ");
-    Serial.println(speedIzq);
-    Serial.print("Ñam1.5 ");
-    Serial.println(integralErrorIzq);
-    Serial.print("Ñam1.6 ");
-    Serial.println(errorIzq);
-    Serial.print("Ñam1.7 ");
-    Serial.println(errorDerDerivative);
-    Serial.print("Ñam2 ");
-    Serial.println(errorSignalIzq);
-    Serial.print("Ñam3 ");
-    Serial.println(pwmValIzq);*/
-    Serial.print("Rho ");
-    Serial.println(rho);
-    Serial.print("Alpha ");
-    Serial.println(alpha*180/PI);
-    Serial.print("Beta ");
-    Serial.println(beta*180/PI);
-    Serial.print("New X ");
-    Serial.println(newX);
-    Serial.print("New Y ");
-    Serial.println(newY);
-    Serial.print("GradX ");
-    Serial.println(grad[0]);
-    Serial.print("GradY ");
-    Serial.println(grad[1]);
-    Serial.print("w ");
-    Serial.println(w,4);
-    Serial.print("v ");
-    Serial.println(v,4);
-    Serial.print("vRefDer ");
-    Serial.println(vRefDer,4);
-    Serial.print("vRefIzq ");
-    Serial.println(vRefIzq,4);
-    
-    
-    timeC=micros();
-  }
-
+  pwmValIzq += errorSignalIzq;
+  pwmValDer += errorSignalDer;
 }
 
 void moveCar()
 {
+  pinPwmIzqF = 0;
 
   int curPinPwmIzq = pwmValIzq >= 0 ? pinPwmIzqF : pinPwmIzqB;
   int curPinPWMOffIzq = pwmValIzq >= 0 ? pinPwmIzqB : pinPwmIzqF;
@@ -433,20 +360,6 @@ void moveCar()
 
   analogWrite(curPinPWMOffDer, 0);
   analogWrite(curPinPwmDer, curPWMValDer);
-
- /* if(micros()-timeC>10000){
-    Serial.print("curX ");
-    Serial.println(curX);
-    Serial.print("curY ");
-    Serial.println(curY);
-    Serial.print("curTheta ");
-    Serial.println(curTheta);
-    timeC=micros();
-    Serial.print("Ñam ");
-    Serial.println(curPWMValIzq);
-    Serial.print("Ñam2 ");
-    Serial.println(curPinPwmIzq);
-  }*/
 }
 
 float calcDistanceToEnd()
@@ -457,6 +370,7 @@ float calcDistanceToEnd()
   return norm;
 }
 
+long timeC= 0;
 
 void stopCar()
 {
@@ -491,71 +405,20 @@ void setup()
 
   PCintPort::attachInterrupt(pinEncoderDerF, countEncoderDerF, RISING);
   PCintPort::attachInterrupt(pinEncoderIzqF, countEncoderIzqF,RISING); // attach a PinChange Interrupt to our pin on the rising edge
-
-  while (Serial.available() <= 0) {
-    // read the incoming byte:
-    int incomingByte = Serial.read();
-    if(incomingByte>0) break;
-  }
   timeCountSpeedIzq=micros();
   timeCountSpeedDer=micros();
 
-  timeC = micros();
-  timeToNewPoint=micros();
-  Serial.println("Empezó");
-
+  timeC = millis();
 }
+
+bool change=false;
+
 void loop()
 {
- 
-  if (finish)
-    return;
+  analogWrite(pinPwmIzqF, 100);
+  analogWrite(pinPwmDerF, 100);
+
   readEncoders();
 
   odometry();
-
-  float trueGradX = -gradX();
-  float trueGradY = -gradY();
-
-  grad[0] = trueGradX;
-  grad[1] = trueGradY;
-
-  if (reachedNewPoint)
-  {
-    reachedNewPoint = false;
-    calcNewPoint();
-  }
-
-  controlOdometry();
-
-  if(micros()-timeControl>400000){
-    control();
-  }
-  moveCar();
-  if (calcDistanceToEnd() < 0.1)
-  {
-    digitalWrite(pinLedFinishing, HIGH);
-    if (countingTimeToEnd == false)
-    {
-      countingTimeToEnd = true;
-      timeToEnd = micros();
-      Serial.println("counting end");
-    }
-    else if (micros() - timeToEnd > 1000000)
-    {
-      finish = true;
-      digitalWrite(pinLedFinished, HIGH);
-      stopCar();
-      Serial.println("Finished");
-      Serial.print("CurX ");
-      Serial.println(curX);
-      Serial.print("CurY ");
-      Serial.println(curY);
-    }
-  }
-  else
-  {
-    countingTimeToEnd = false;
-    digitalWrite(pinLedFinishing, LOW);
-  }
 }
