@@ -152,7 +152,7 @@ float beta = 0;
 /* -------------------------------
   Car parameters
 -----------------------------------*/
-float b = 0.17;
+float b = 0.205;
 float l = b / 2;
 float wheelRadius = 0.034;
 
@@ -165,18 +165,17 @@ float grad[2] = {0,0};
 //3d plot (x-2)^2+y^2+10*e^(-((x-0.3)^2+(y-0.5)^2)*2)+12*e^(-((x-1.2)^2+(y+0.7)^2)*2) from -1 to 3
 float gradX()
 {
-  return 2*(curX+1);
-  //return 4*(curX-2) -100*(curX)*exp(-5*(pow(curX,2) + pow(curY - 0.7,2))) -120*(curX)*exp(-5*(pow(curX,2) + pow(curY + 1,2))) -120*(curX - 1.2)*exp(-5*(pow(curX - 1.2,2) + pow(curY + 1,2)));
+  //return 2*(curX+1);
+  return 4*(curX-2) -100*(curX)*exp(-5*(pow(curX,2) + pow(curY - 0.7,2))) -120*(curX)*exp(-5*(pow(curX,2) + pow(curY + 1,2))) -120*(curX - 1.2)*exp(-5*(pow(curX - 1.2,2) + pow(curY + 1,2)));
 }
 
 float gradY()
 {
-  return 2*(curY);
-  //return 4*(curY )  -100*(curY - 0.7)*exp(-5*(pow(curX,2) + pow(curY - 0.7,2))) -120*(curY +1)*exp(-5*(pow(curX,2) + pow(curY + 1,2))) -120*(curY + 1)*exp(-5*(pow(curX - 1.2,2) + pow(curY + 1,2)));
+  //return 2*(curY);
+  return 4*(curY )  -100*(curY - 0.7)*exp(-5*(pow(curX,2) + pow(curY - 0.7,2))) -120*(curY +1)*exp(-5*(pow(curX,2) + pow(curY + 1,2))) -120*(curY + 1)*exp(-5*(pow(curX - 1.2,2) + pow(curY + 1,2)));
 }
 
-const float finalX = -1;
-//const float finalX = 2;
+const float finalX = 2;
 const float finalY = 0;
 
 bool reachedNewPoint = true;
@@ -276,7 +275,7 @@ void calcControlVariables()
 
   rho = sqrt((dX * dX) + (dY * dY));
 
-  if (rho < pointReachedThreshold || micros()-timeToNewPoint>300000)
+  if (rho < pointReachedThreshold || micros()-timeToNewPoint>1000000)
   {
     timeToNewPoint=micros();
     reachedNewPoint = true;
@@ -545,7 +544,7 @@ void loop()
       timeToEnd = micros();
       Serial.println("counting end");
     }
-    else if (micros() - timeToEnd > 500000)
+    else if (micros() - timeToEnd > 100000)
     {
       finish = true;
       digitalWrite(pinLedFinished, HIGH);
