@@ -162,18 +162,22 @@ float wheelRadius = 0.034;
 
 float grad[2] = {0,0};
 //Function = (x-2)^2+y^2 Le faltan -7
+//3d plot (x-2)^2+y^2+10*e^(-((x-0.3)^2+(y-0.5)^2)*2)+12*e^(-((x-1.2)^2+(y+0.7)^2)*2) from -1 to 3
 float gradX()
 {
-  return 2 * (curX);
+  return 2*(curX+1);
+  //return 4*(curX-2) -100*(curX)*exp(-5*(pow(curX,2) + pow(curY - 0.7,2))) -120*(curX)*exp(-5*(pow(curX,2) + pow(curY + 1,2))) -120*(curX - 1.2)*exp(-5*(pow(curX - 1.2,2) + pow(curY + 1,2)));
 }
 
 float gradY()
 {
-  return 2 * (curY+1.5 );
+  return 2*(curY);
+  //return 4*(curY )  -100*(curY - 0.7)*exp(-5*(pow(curX,2) + pow(curY - 0.7,2))) -120*(curY +1)*exp(-5*(pow(curX,2) + pow(curY + 1,2))) -120*(curY + 1)*exp(-5*(pow(curX - 1.2,2) + pow(curY + 1,2)));
 }
 
-const float finalX = 0;
-const float finalY = -1.5;
+const float finalX = -1;
+//const float finalX = 2;
+const float finalY = 0;
 
 bool reachedNewPoint = true;
 float newX = 0;
@@ -257,8 +261,8 @@ void calcNewPoint()
   newY *= 0.1;
 
   if(micros()-timeC>290000){
-    Serial.print("newYT ");
-    Serial.println(newY);
+    //Serial.print("newYT ");
+    //Serial.println(newY);
   }
 
   newX+=curX;
@@ -272,7 +276,7 @@ void calcControlVariables()
 
   rho = sqrt((dX * dX) + (dY * dY));
 
-  if (rho < pointReachedThreshold || micros()-timeToNewPoint>1000000)
+  if (rho < pointReachedThreshold || micros()-timeToNewPoint>300000)
   {
     timeToNewPoint=micros();
     reachedNewPoint = true;
@@ -356,10 +360,10 @@ void control()
     Serial.println(curY);
     Serial.print("curTheta ");
     Serial.println(curTheta*180/PI,4);
-    Serial.print("dsIzq ");
-    Serial.println(dsIzq,7);
-    Serial.print("pwmValDer ");
-    Serial.println(pwmValDer,7);
+    //Serial.print("dsIzq ");
+    //Serial.println(dsIzq,7);
+    //Serial.print("pwmValDer ");
+    //Serial.println(pwmValDer,7);
     /*Serial.print("Ñam ");
     Serial.println(vRefIzq);
      Serial.print("Ñam1.1 ");
@@ -374,28 +378,28 @@ void control()
     Serial.println(errorSignalIzq);
     Serial.print("Ñam3 ");
     Serial.println(pwmValIzq);*/
-    Serial.print("Rho ");
-    Serial.println(rho);
-    Serial.print("Alpha ");
-    Serial.println(alpha*180/PI);
-    Serial.print("Beta ");
-    Serial.println(beta*180/PI);
-    Serial.print("New X ");
-    Serial.println(newX);
-    Serial.print("New Y ");
-    Serial.println(newY);
+    //Serial.print("Rho ");
+    //Serial.println(rho);
+    //Serial.print("Alpha ");
+    //Serial.println(alpha*180/PI);
+    //Serial.print("Beta ");
+    //Serial.println(beta*180/PI);
+    //Serial.print("New X ");
+    //Serial.println(newX);
+    //Serial.print("New Y ");
+    //Serial.println(newY);
     Serial.print("GradX ");
     Serial.println(grad[0]);
     Serial.print("GradY ");
     Serial.println(grad[1]);
-    Serial.print("w ");
-    Serial.println(w,4);
-    Serial.print("v ");
-    Serial.println(v,4);
-    Serial.print("vRefDer ");
-    Serial.println(vRefDer,4);
-    Serial.print("vRefIzq ");
-    Serial.println(vRefIzq,4);
+    //Serial.print("w ");
+    //Serial.println(w,4);
+    //Serial.print("v ");
+    //Serial.println(v,4);
+    //Serial.print("vRefDer ");
+    //Serial.println(vRefDer,4);
+    //Serial.print("vRefIzq ");
+    //Serial.println(vRefIzq,4);
     
     
     timeC=micros();
@@ -541,7 +545,7 @@ void loop()
       timeToEnd = micros();
       Serial.println("counting end");
     }
-    else if (micros() - timeToEnd > 1000000)
+    else if (micros() - timeToEnd > 500000)
     {
       finish = true;
       digitalWrite(pinLedFinished, HIGH);
