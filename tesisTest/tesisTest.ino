@@ -11,15 +11,11 @@ bool countingTimeToEnd = false;
 long timeToEnd = 0;
 
 
-long timeC= 0;
 long timeControl=0;
 
 /* -------------------------------
   LEDS
 -----------------------------------*/
-int pinLedMoving = 10;
-int pinLedFinishing = 11;
-int pinLedFinished = 12;
 
 /* -------------------------------
   PWM
@@ -259,10 +255,7 @@ void calcNewPoint()
   newX *= 0.1;
   newY *= 0.1;
 
-  if(micros()-timeC>290000){
-    //Serial.print("newYT ");
-    //Serial.println(newY);
-  }
+
 
   newX+=curX;
   newY+=curY;
@@ -479,10 +472,6 @@ void setup()
   pinMode(pinPwmDerF, OUTPUT);
   pinMode(pinPwmDerB, OUTPUT);
 
-  pinMode(pinLedMoving, OUTPUT);
-  pinMode(pinLedFinishing, OUTPUT);
-  pinMode(pinLedFinished, OUTPUT);
-
   pinMode(pinEncoderDerF, INPUT);
   pinMode(pinEncoderDerB, INPUT);
   pinMode(pinEncoderIzqB, INPUT);
@@ -503,14 +492,13 @@ void setup()
   timeCountSpeedIzq=micros();
   timeCountSpeedDer=micros();
 
-  timeC = micros();
   timeToNewPoint=micros();
   //Serial.println("Empezó");
 
 }
+int cycles=0;
 void loop()
-{
- 
+{ 
   if (finish)
     return;
   readEncoders();
