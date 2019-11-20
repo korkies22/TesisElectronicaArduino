@@ -13,6 +13,8 @@ long timeToEnd = 0;
 
 long timeControl=0;
 
+int arr[200];
+
 /* -------------------------------
   LEDS
 -----------------------------------*/
@@ -148,7 +150,7 @@ float beta = 0;
 /* -------------------------------
   Car parameters
 -----------------------------------*/
-float b = 0.22;
+float b = 0.2;
 float l = b / 2;
 float wheelRadius = 0.034;
 
@@ -161,17 +163,17 @@ float grad[2] = {0,0};
 //3d plot (x-2)^2+y^2+10*e^(-((x-0.3)^2+(y-0.5)^2)*2)+12*e^(-((x-1.2)^2+(y+0.7)^2)*2) from -1 to 3
 float gradX()
 {
-  return 2*(curX+1);
-  //return 4*(curX-2) -100*(curX)*exp(-5*(pow(curX,2) + pow(curY - 0.7,2))) -120*(curX)*exp(-5*(pow(curX,2) + pow(curY + 1,2))) -120*(curX - 1.2)*exp(-5*(pow(curX - 1.2,2) + pow(curY + 1,2)));
+  //return 2*(curX+1);
+  return 4*(curX-2) -100*(curX)*exp(-5*(pow(curX,2) + pow(curY - 0.7,2))) -120*(curX)*exp(-5*(pow(curX,2) + pow(curY + 1,2))) -120*(curX - 1.2)*exp(-5*(pow(curX - 1.2,2) + pow(curY + 1,2)));
 }
 
 float gradY()
 {
-  return 2*(curY);
-  //return 4*(curY )  -100*(curY - 0.7)*exp(-5*(pow(curX,2) + pow(curY - 0.7,2))) -120*(curY +1)*exp(-5*(pow(curX,2) + pow(curY + 1,2))) -120*(curY + 1)*exp(-5*(pow(curX - 1.2,2) + pow(curY + 1,2)));
+  //return 2*(curY);
+  return 4*(curY )  -100*(curY - 0.7)*exp(-5*(pow(curX,2) + pow(curY - 0.7,2))) -120*(curY +1)*exp(-5*(pow(curX,2) + pow(curY + 1,2))) -120*(curY + 1)*exp(-5*(pow(curX - 1.2,2) + pow(curY + 1,2)));
 }
 
-const float finalX = -1;
+const float finalX = 2;
 const float finalY = 0;
 
 bool reachedNewPoint = true;
@@ -466,7 +468,7 @@ void stopCar()
 void setup()
 {
   Serial.begin(115200);
-
+  memset(arr, 0, 200*sizeof(arr[0])); 
   pinMode(pinPwmIzqF, OUTPUT);
   pinMode(pinPwmIzqB, OUTPUT);
   pinMode(pinPwmDerF, OUTPUT);
@@ -499,6 +501,21 @@ void setup()
 int cycles=0;
 void loop()
 { 
+
+  int i=0;
+  int j=0;
+
+  while(i<0){
+    arr[j]=i;
+    i++;
+    j++;
+
+    if(j==200){
+      j=0;
+    }
+  }
+
+  
   if (finish)
     return;
   readEncoders();
