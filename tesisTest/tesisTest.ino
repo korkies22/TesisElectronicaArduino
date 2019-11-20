@@ -152,7 +152,7 @@ float beta = 0;
 /* -------------------------------
   Car parameters
 -----------------------------------*/
-float b = 0.205;
+float b = 0.22;
 float l = b / 2;
 float wheelRadius = 0.034;
 
@@ -165,17 +165,17 @@ float grad[2] = {0,0};
 //3d plot (x-2)^2+y^2+10*e^(-((x-0.3)^2+(y-0.5)^2)*2)+12*e^(-((x-1.2)^2+(y+0.7)^2)*2) from -1 to 3
 float gradX()
 {
-  //return 2*(curX+1);
-  return 4*(curX-2) -100*(curX)*exp(-5*(pow(curX,2) + pow(curY - 0.7,2))) -120*(curX)*exp(-5*(pow(curX,2) + pow(curY + 1,2))) -120*(curX - 1.2)*exp(-5*(pow(curX - 1.2,2) + pow(curY + 1,2)));
+  return 2*(curX+1);
+  //return 4*(curX-2) -100*(curX)*exp(-5*(pow(curX,2) + pow(curY - 0.7,2))) -120*(curX)*exp(-5*(pow(curX,2) + pow(curY + 1,2))) -120*(curX - 1.2)*exp(-5*(pow(curX - 1.2,2) + pow(curY + 1,2)));
 }
 
 float gradY()
 {
-  //return 2*(curY);
-  return 4*(curY )  -100*(curY - 0.7)*exp(-5*(pow(curX,2) + pow(curY - 0.7,2))) -120*(curY +1)*exp(-5*(pow(curX,2) + pow(curY + 1,2))) -120*(curY + 1)*exp(-5*(pow(curX - 1.2,2) + pow(curY + 1,2)));
+  return 2*(curY);
+  //return 4*(curY )  -100*(curY - 0.7)*exp(-5*(pow(curX,2) + pow(curY - 0.7,2))) -120*(curY +1)*exp(-5*(pow(curX,2) + pow(curY + 1,2))) -120*(curY + 1)*exp(-5*(pow(curX - 1.2,2) + pow(curY + 1,2)));
 }
 
-const float finalX = 2;
+const float finalX = -1;
 const float finalY = 0;
 
 bool reachedNewPoint = true;
@@ -352,7 +352,7 @@ void control()
 
   
   
-  if(micros()-timeC>300000){
+ /* if(micros()-timeC>300000){
     Serial.print("curX ");
     Serial.println(curX);
     Serial.print("curY ");
@@ -363,20 +363,20 @@ void control()
     //Serial.println(dsIzq,7);
     //Serial.print("pwmValDer ");
     //Serial.println(pwmValDer,7);
-    /*Serial.print("Ñam ");
-    Serial.println(vRefIzq);
-     Serial.print("Ñam1.1 ");
-    Serial.println(speedIzq);
-    Serial.print("Ñam1.5 ");
-    Serial.println(integralErrorIzq);
-    Serial.print("Ñam1.6 ");
-    Serial.println(errorIzq);
-    Serial.print("Ñam1.7 ");
-    Serial.println(errorDerDerivative);
-    Serial.print("Ñam2 ");
-    Serial.println(errorSignalIzq);
-    Serial.print("Ñam3 ");
-    Serial.println(pwmValIzq);*/
+    //Serial.print("Ñam ");
+    //Serial.println(vRefIzq);
+     //Serial.print("Ñam1.1 ");
+    //Serial.println(speedIzq);
+    //Serial.print("Ñam1.5 ");
+    //Serial.println(integralErrorIzq);
+    //Serial.print("Ñam1.6 ");
+    //Serial.println(errorIzq);
+    //Serial.print("Ñam1.7 ");
+    //Serial.println(errorDerDerivative);
+    //Serial.print("Ñam2 ");
+    //Serial.println(errorSignalIzq);
+    //Serial.print("Ñam3 ");
+    //Serial.println(pwmValIzq);
     //Serial.print("Rho ");
     //Serial.println(rho);
     //Serial.print("Alpha ");
@@ -402,7 +402,7 @@ void control()
     
     
     timeC=micros();
-  }
+  } */
 
 }
 
@@ -505,7 +505,7 @@ void setup()
 
   timeC = micros();
   timeToNewPoint=micros();
-  Serial.println("Empezó");
+  //Serial.println("Empezó");
 
 }
 void loop()
@@ -537,28 +537,28 @@ void loop()
   moveCar();
   if (calcDistanceToEnd() < 0.1)
   {
-    digitalWrite(pinLedFinishing, HIGH);
+    //digitalWrite(pinLedFinishing, HIGH);
     if (countingTimeToEnd == false)
     {
       countingTimeToEnd = true;
       timeToEnd = micros();
-      Serial.println("counting end");
+      //Serial.println("counting end");
     }
-    else if (micros() - timeToEnd > 100000)
+    else if (micros() - timeToEnd > 500000)
     {
       finish = true;
-      digitalWrite(pinLedFinished, HIGH);
+      //digitalWrite(pinLedFinished, HIGH);
       stopCar();
-      Serial.println("Finished");
+     /* Serial.println("Finished");
       Serial.print("CurX ");
       Serial.println(curX);
       Serial.print("CurY ");
-      Serial.println(curY);
+      Serial.println(curY);*/
     }
   }
   else
   {
     countingTimeToEnd = false;
-    digitalWrite(pinLedFinishing, LOW);
+    //digitalWrite(pinLedFinishing, LOW);
   }
 }
